@@ -27,19 +27,16 @@
     <div data-panel="design">
     <section>
       <h2>Piastra</h2>
-      <div class="row3">
+      <div class="row">
         <label>Lunghezza <span class="unit">mm</span>
           <input id="L" type="number" min="35" max="120" step="1" value="60">
         </label>
         <label>Larghezza <span class="unit">mm</span>
           <input id="W" type="number" min="25" max="100" step="1" value="45">
         </label>
-        <label>Margine <span class="unit">mm</span>
-          <input id="margin" type="number" min="0" max="15" step="0.5" value="5">
-        </label>
       </div>
       <label class="chk opt"><input id="scaleDesign" type="checkbox" checked> Scala anche il disegno quando cambio la piastra</label>
-      <p class="hint">Puoi anche trascinare le maniglie sul bordo della piastra nell'editor. Con margine 0 si imprime su tutta la superficie.</p>
+      <p class="hint">Puoi anche trascinare le maniglie gialle sul bordo della piastra nell'editor. Si imprime su tutta la superficie, fino al bordo.</p>
     </section>
     <section>
       <div class="add">
@@ -50,7 +47,7 @@
       </div>
       <ul id="layers" class="layers" aria-label="Elementi del disegno"></ul>
       <div id="props" class="props"></div>
-      <p class="hint">Più in alto nella lista = sta sopra. "Sottrai" buca gli elementi sotto (es. un nome scavato in un motivo). Quello che esce dall'area utile viene tagliato.</p>
+      <p class="hint">Più in alto nella lista = sta sopra. "Sottrai" buca gli elementi sotto (es. un nome scavato in un motivo). Quello che esce dalla piastra viene tagliato.</p>
       <input id="imageFile" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
       <input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2" hidden>
     </section>
@@ -63,7 +60,7 @@
         </label>
         <label></label>
       </div>
-      <div class="row">
+      <div class="row" id="alignPosRow">
         <label id="alignBackPosWrap">Fondo dal bordo <span class="unit">mm</span>
           <input id="alignBackPos" type="number" min="2" max="60" step="0.5" value="3">
         </label>
@@ -86,7 +83,7 @@
           <input id="corner" type="number" min="0.5" max="15" step="0.5" value="4">
         </label>
       </div>
-      <p class="hint">Lunghezza, larghezza e margine sono nella scheda Disegno. Il raggio vale per gli angoli del lato libero.</p>
+      <p class="hint">Lunghezza e larghezza sono nella scheda Disegno. Il raggio vale per gli angoli del lato libero.</p>
     </section>
 
     <section>
@@ -181,7 +178,7 @@
         <label><input type="radio" name="look" value="back"> Retro del foglio</label>
       </div>
     </div>
-    <div class="legend"><span class="sw sw-card"></span> area utile <span class="sw sw-seam"></span> cerniera <span id="lookHint"></span></div>
+    <div class="legend"><span class="sw sw-seam"></span> cerniera <span id="lookHint"></span></div>
     <div class="editor-wrap"><canvas id="editor" tabindex="0" aria-label="Editor della piastra"></canvas></div>
 
     <ul id="warnings" class="warnings"></ul>

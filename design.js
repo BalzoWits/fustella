@@ -2,21 +2,33 @@
 // canvas in millimetri. La maschera (canale alfa) è quello che il worker trasforma in rilievo.
 // Coordinate: la piastra inferiore vista dall'alto con la cerniera a sinistra.
 // u verso destra (0 = bordo lato cerniera … L = bordo libero), v verso il basso (0 … W).
-// Il disegno resta dentro l'area utile (piastra meno il margine): fuori viene tagliato.
+// Il disegno resta sulla piastra (e sulla parte coperta dal foglio, se ci sono allineatori): fuori viene tagliato.
+import { STOP } from './fustella.js';
 export const PXMM = 10; // risoluzione della maschera
 
 // misure correnti della piastra (le cambia la pagina con setPlate)
 // guide: allineatori del foglio, distanza del bordo del foglio dal bordo della piastra (null = assente)
 //   back = lato cerniera (u), top / bottom = lato in alto / in basso nell'editor (v)
-export const PLATE = { L: 60, W: 45, M: 5, guides: { back: null, top: null, bottom: null } };
-export function setPlate(L, W, M, guides) { Object.assign(PLATE, { L, W, M }); if (guides) PLATE.guides = guides; }
+// Si può imprimere su tutta la piastra: l'area del disegno è la piastra intera.
+export const PLATE = { L: 60, W: 45, M: 0, stops: false, guides: { back: null, top: null, bottom: null } };
+export function setPlate(L, W, guides) { Object.assign(PLATE, { L, W }); if (guides) PLATE.guides = guides; }
 export function area() {
-  const { L, W, M } = PLATE;
-  return { x: M, y: M, w: Math.max(4, L - 2 * M), h: Math.max(4, W - 2 * M) };
+  return { x: 0, y: 0, w: PLATE.L, h: PLATE.W };
+}
+// riporta sulla piastra gli elementi finiti fuori (disegni vecchi, ridimensionamenti estremi)
+export function keepOnPlate(els) {
+  const { L, W } = PLATE;
+  const cl = (v, a, b) => r2(Math.min(b, Math.max(a, v)));
+  for (const el of els) {
+    if (el.type === 'frame' || el.type === 'pattern') {
+      el.w = cl(el.w, 4, L); el.h = cl(el.h, 4, W);
+      el.x = cl(el.x, 0, L - el.w); el.y = cl(el.y, 0, W - el.h);
+    } else if (el.x !== undefined) { el.x = cl(el.x, 0, L); el.y = cl(el.y, 0, W); }
+  }
 }
 // distanza minima tra il bordo del foglio (faccia dell'allineatore) e il disegno
 export const GUIDE_INSET = 0.8;
-// dove si può imprimere: area utile, ristretta alla parte coperta dal foglio se ci sono allineatori
+// dove si può imprimere: la piastra, ristretta alla parte coperta dal foglio se ci sono allineatori
 export function printRegion() {
   const A = area(), g = PLATE.guides;
   let x0 = A.x, y0 = A.y, x1 = A.x + A.w, y1 = A.y + A.h;
@@ -130,8 +142,9 @@ export function newElement(type) {
 }
 
 export function defaultDesign() {
-  const A = area();
-  const frame = { ...newElement('frame'), style: 'double', thick: 0.9 };
+  // cornice a 4 mm dal bordo, testi nella parte interna
+  const A = { x: 4, y: 4, w: PLATE.L - 8, h: PLATE.W - 8 };
+  const frame = { ...newElement('frame'), style: 'double', thick: 0.9, x: 4, y: 4, w: A.w, h: A.h };
   const top = { ...newElement('text'), text: 'EX LIBRIS', font: 'montserrat-700', size: 3.4, spacing: 1, y: r2(A.y + A.h * 0.3) };
   const name = { ...newElement('text'), font: 'roboto-slab', size: 5, spacing: 0.4, y: r2(A.y + A.h * 0.62) };
   return [frame, top, name];
@@ -205,7 +218,7 @@ function patternRect(el) {
 // Come si modifica un elemento sulla piastra:
 //  scale  -> trascina per spostare (x, y), angoli = ingrandisci (o deforma se keep è spento), pallino = ruota
 //  rect   -> trascina per spostare, angoli = cambia larghezza/altezza (chiavi indicate)
-//  null   -> occupa tutta l'area utile: si modifica dal pannello
+//  null   -> occupa tutta la piastra: si modifica dal pannello
 export function editMode(el) {
   if (el.type === 'frame') return { rect: ['x', 'y', 'w', 'h'] };
   if (el.type === 'pattern') return el.area === 'rect' ? { rect: ['x', 'y', 'w', 'h'] } : null;
@@ -506,10 +519,18 @@ function drawOne(ctx, el) {
 }
 
 // Disegna tutta la piastra: ctx già scalato in mm (1 unità = 1 mm), sfondo trasparente.
-// clip = true taglia all'area utile (maschera vera); false lascia vedere anche quello che esce.
+// clip = true taglia alla zona stampabile (maschera vera); false lascia vedere anche quello che esce.
 export function renderDesign(ctx, els, clip = true) {
   ctx.save();
-  if (clip) { const A = printRegion(); ctx.beginPath(); ctx.rect(A.x, A.y, A.w, A.h); ctx.clip(); }
+  if (clip) {
+    const A = printRegion();
+    ctx.beginPath(); ctx.rect(A.x, A.y, A.w, A.h);
+    // distanziali: un buco nella zona stampabile attorno a ciascuno (come nella geometria)
+    if (PLATE.stops) for (const u of [STOP.d + 0.5, PLATE.L - STOP.d - 0.5]) for (const v of [STOP.d, PLATE.W - STOP.d]) {
+      ctx.moveTo(u + STOP.r + STOP.keep, v); ctx.arc(u, v, STOP.r + STOP.keep, 0, Math.PI * 2);
+    }
+    ctx.clip('evenodd');
+  }
   for (const el of els) {
     if (!el.visible) continue;
     ctx.save();

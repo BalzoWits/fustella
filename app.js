@@ -3,9 +3,9 @@ import { OrbitControls } from './lib/OrbitControls.js';
 import {
   PLATE, setPlate, area, FONTS, PATTERNS, loadFont, addCustomFont, newElement, newId, defaultDesign, label,
   prepareImages, dropImageCache, bounds, moveBy, scaleBy, resizeRect, editMode, renderMask, maskSize, shiftAll,
-  scaleDesign, printRegion, fitTo, imageNaturalH,
+  scaleDesign, printRegion, fitTo, imageNaturalH, keepOnPlate,
 } from './design.js';
-import { DEFAULTS, hingeDims } from './fustella.js';
+import { DEFAULTS, hingeDims, STOP } from './fustella.js';
 import { toSTL, to3MF } from './export.js';
 import { PRINT, bambuObjectSettings } from './print-settings.js';
 import { embossImage } from './emboss.js';
@@ -27,7 +27,7 @@ const sel = () => els.find((e) => e.id === selId) || null;
 
 // parametri della fustella: campo -> [min, max]
 const NUM = {
-  L: [35, 120], W: [25, 100], T: [3.5, 8], margin: [0, 15], corner: [0.5, 15],
+  L: [35, 120], W: [25, 100], T: [3.5, 8], corner: [0.5, 15],
   relief: [0.3, 1.5], clearance: [0.1, 0.6], gap: [0.05, 0.5], tip: [0.05, 0.6], soften: [0, 0.25],
   hingeClr: [0.2, 0.5], axialGap: [0.25, 0.8], alignBackPos: [2, 114], alignSidePos: [2, 94],
 };
@@ -40,8 +40,7 @@ function readParams() {
   p.knuckles = +$('knuckles').value;
   p.alignSide = $('alignSide').value;
   p.mode = document.querySelector('input[name=mode]:checked').value;
-  // il margine non può mangiarsi tutta la piastra
-  p.margin = Math.min(p.margin, (Math.min(p.L, p.W) - 8) / 2);
+  p.margin = 0; // si imprime su tutta la piastra
   // l'allineatore deve stare sulla piastra
   p.alignBackPos = Math.min(p.alignBackPos, p.L - 6);
   p.alignSidePos = Math.min(p.alignSidePos, p.W - 6);
@@ -68,9 +67,11 @@ function applyParams(p) {
 // misure della piastra -> modulo del disegno
 function syncPlate() {
   const p = readParams();
-  setPlate(p.L, p.W, p.margin, guidesOf(p));
+  setPlate(p.L, p.W, guidesOf(p));
+  PLATE.stops = p.stops;
   $('alignBackPosWrap').style.visibility = p.alignBack ? '' : 'hidden';
   $('alignSidePosWrap').style.visibility = p.alignSide !== 'none' ? '' : 'hidden';
+  $('alignPosRow').hidden = !p.alignBack && p.alignSide === 'none';
   $('plateSize').textContent = `${fmt(p.L, 0)} × ${fmt(p.W, 0)} mm, cerniera a sinistra · clic per selezionare, trascina per spostare`;
   $('modeHint').textContent = p.mode === 'deboss'
     ? 'Il disegno resta inciso sul lato del foglio che guardi dall\'alto (lo stampo in rilievo è sulla metà di sopra).'
@@ -89,7 +90,7 @@ function save() {
 // Posizione e misure si cambiano soprattutto trascinando sulla piastra: nel pannello stanno in gruppi chiusi.
 const OP = { key: 'op', label: 'Effetto', type: 'seg', options: [['add', 'In rilievo'], ['cut', 'Sottrai']] };
 const isMulti = (e) => String(e.text).includes('\n');
-const AREA = [['all', 'Tutta l\'area utile'], ['rect', 'Riquadro']];
+const AREA = [['all', 'Tutta la piastra'], ['rect', 'Riquadro']];
 const free = (e) => e.keep === false;
 // misure: bottoni per adattare all'area e check delle proporzioni (testo e immagine)
 const FIT = { key: 'fit', type: 'fit' };
@@ -211,14 +212,14 @@ function renderProps() {
       syncForm(); changed();
     });
   }
-  // adatta / riempi la zona dove si imprime (area utile, ristretta al foglio se ci sono allineatori)
+  // adatta / riempi la zona dove si imprime (la piastra, ristretta al foglio se ci sono allineatori)
   for (const bt of box.querySelectorAll('[data-fit]')) {
     bt.addEventListener('click', () => {
       fitTo(maskCanvas.getContext('2d'), el, printRegion(), bt.dataset.fit === 'fill');
       renderProps(); changed();
     });
   }
-  // centro dell'area utile
+  // centro della piastra
   box.querySelector('[data-center=h]')?.addEventListener('click', () => { const A = area(); el.x = +(A.x + A.w / 2).toFixed(2); syncForm(); changed(); });
   box.querySelector('[data-center=v]')?.addEventListener('click', () => { const A = area(); el.y = +(A.y + A.h / 2).toFixed(2); syncForm(); changed(); });
 }
@@ -380,6 +381,7 @@ function loadDesign(list, params) {
   if (params) applyParams(params);
   els = list.map((e) => ({ ...newElement(e.type), ...e }));
   for (const e of els) if (e.type === 'text' && !FONTS.some((f) => f.id === e.font)) e.font = 'playfair';
+  keepOnPlate(els);
   selId = null;
   renderLayers();
   renderProps();
@@ -502,7 +504,7 @@ function drawEditor() {
     for (let u = 0; u <= L; u += 5) { ctx.moveTo(X(u), Y(0)); ctx.lineTo(X(u), Y(W)); }
     for (let v = 0; v <= W; v += 5) { ctx.moveTo(X(0), Y(v)); ctx.lineTo(X(L), Y(v)); }
     ctx.stroke();
-    // quello che esce dall'area utile, in rosso tenue (verrà tagliato)
+    // quello che esce dalla piastra o dal foglio, in rosso tenue (verrà tagliato)
     ctx.globalAlpha = 0.35;
     ctx.drawImage(tinted(fullCanvas, '#c0504d'), X(0), Y(0), L * k, W * k);
     ctx.globalAlpha = 1;
@@ -511,13 +513,6 @@ function drawEditor() {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(reliefImage(mode === 'back'), X(0), Y(0), L * k, W * k);
   }
-  // margine liscio leggermente velato
-  const A = area();
-  ctx.fillStyle = 'rgba(13,13,16,.10)';
-  ctx.beginPath();
-  ctx.rect(X(0), Y(0), L * k, W * k);
-  ctx.rect(X(A.x), Y(A.y), A.w * k, A.h * k);
-  ctx.fill('evenodd');
   // allineatori: dove il foglio non arriva la piastra è più scura; la nervatura è grigia
   const G = PLATE.guides, lines = mode === 'back' ? [] : guideLines();
   if (lines.length) {
@@ -534,14 +529,19 @@ function drawEditor() {
       else ctx.fillRect(X(0), Y(g.v), L * k, RIB_W * k);
     }
   }
+  // distanziali: lì il disegno si ferma (anello libero attorno a ciascuno)
+  if ($('stops').checked && mode !== 'back') {
+    for (const u of [STOP.d + 0.5, L - STOP.d - 0.5]) for (const v of [STOP.d, W - STOP.d]) {
+      ctx.beginPath(); ctx.arc(X(u), Y(v), (STOP.r + STOP.keep) * k, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(13,13,16,.25)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(X(u), Y(v), STOP.r * k, 0, Math.PI * 2);
+      ctx.fillStyle = '#4a4a54'; ctx.fill();
+    }
+  }
   ctx.restore();
-  // contorno della piastra e area utile
+  // contorno della piastra
   platePath(ctx, X, Y, k);
   ctx.strokeStyle = 'rgba(236,236,241,.35)'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.setLineDash([6, 4]);
-  ctx.strokeStyle = '#7d6a45'; ctx.lineWidth = 1.5;
-  ctx.strokeRect(X(A.x), Y(A.y), A.w * k, A.h * k);
-  ctx.setLineDash([]);
   // bordo del foglio e distanza del disegno dal bordo
   for (const g of lines) {
     ctx.strokeStyle = '#3aa0ff'; ctx.lineWidth = 2;
@@ -675,14 +675,14 @@ function guideAt(px, py) {
   return guideLines().find((g) => (g.u !== undefined ? Math.abs(X(g.u) - px) : Math.abs(Y(g.v) - py)) <= 6) || null;
 }
 
-// misure della piastra cambiate (input o maniglie): il disegno si scala con l'area utile
+// misure della piastra cambiate (input o maniglie): il disegno si scala con la piastra
 // oppure resta della sua misura, centrato
 function resizePlate(oL, oW, oM) {
-  const { L, W, M } = PLATE;
+  const { L, W } = PLATE;
   if ($('scaleDesign').checked) {
-    const fx = (L - 2 * M) / Math.max(1, oL - 2 * oM), fy = (W - 2 * M) / Math.max(1, oW - 2 * oM);
-    scaleDesign(els, fx, fy, oM, M);
+    scaleDesign(els, L / oL, W / oW, 0, 0);
   } else shiftAll(els, (L - oL) / 2, (W - oW) / 2);
+  keepOnPlate(els);
 }
 
 function hit(u, v) {
@@ -822,11 +822,11 @@ function aabb(b) {
   const ex = c * b.w / 2 + s * b.h / 2, ey = s * b.w / 2 + c * b.h / 2;
   return { l: b.cx - ex, r: b.cx + ex, t: b.cy - ey, b: b.cy + ey, cx: b.cx, cy: b.cy };
 }
-// linee a cui agganciarsi: bordi e centro dell'area utile, poi bordi e centri degli altri elementi
+// linee a cui agganciarsi: bordi, centro e linee a 4 mm dai bordi della piastra, poi bordi e centri degli altri elementi
 function snapTargets(except) {
   const A = area();
-  const xs = [A.x, A.x + A.w / 2, A.x + A.w];
-  const ys = [A.y, A.y + A.h / 2, A.y + A.h];
+  const xs = [A.x, A.x + 4, A.x + A.w / 2, A.x + A.w - 4, A.x + A.w];
+  const ys = [A.y, A.y + 4, A.y + A.h / 2, A.y + A.h - 4, A.y + A.h];
   const mctx = maskCanvas.getContext('2d');
   for (const e of els) {
     if (e === except || !e.visible || !editMode(e)) continue;
@@ -910,7 +910,7 @@ function reliefImage(back) {
 }
 const LOOK_HINT = {
   relief: 'luce radente: così appare il foglio visto dall\'alto',
-  flat: 'in rosso tenue le parti fuori dall\'area utile (vengono tagliate)',
+  flat: 'in rosso tenue le parti che escono dalla piastra o dal foglio (vengono tagliate)',
   back: 'retro del foglio (specchiato, solo da guardare)',
 };
 for (const r of document.querySelectorAll('input[name=look]')) {
@@ -1062,7 +1062,7 @@ function renderInfo(r) {
     ['Ingombro sul piatto', `${fmt(i.footprint[0], 0)} × ${fmt(i.footprint[1], 0)} × ${fmt(2 * i.H)} mm`],
     ['Chiusa', `${fmt(p.L + i.start, 0)} × ${fmt(p.W, 0)} × ${fmt(2 * i.H)} mm`],
     ['Stampo', `rilievo ${fmt(p.relief, 2)}, cavità ${fmt(i.depth, 2)}, gioco ${fmt(p.clearance, 2)} mm`],
-    ['Superficie da imprimere', `${Math.round(i.coverage * 100)}% dell'area utile`],
+    ['Superficie da imprimere', `${Math.round(i.coverage * 100)}% della piastra`],
     ['Triangoli', `${Math.round(i.triangles / 1000)} mila`],
   ];
   $('info').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
@@ -1118,7 +1118,7 @@ async function changed() {
   scheduleBuild();
 }
 // misure della piastra: il disegno resta centrato
-for (const id of ['L', 'W', 'margin']) {
+for (const id of ['L', 'W']) {
   $(id).addEventListener('change', () => {
     const oL = PLATE.L, oW = PLATE.W, oM = PLATE.M;
     syncPlate();
@@ -1135,7 +1135,8 @@ for (const id of ['alignBackPos', 'alignSidePos']) $(id).addEventListener('input
 for (const id of ['T', 'corner', 'relief', 'clearance', 'gap', 'tip', 'soften', 'hingeClr', 'axialGap']) {
   $(id).addEventListener('input', () => { save(); drawEditor(); scheduleBuild(); });
 }
-for (const id of ['knuckles', 'tab', 'stops']) $(id).addEventListener('change', () => { save(); drawEditor(); scheduleBuild(); });
+for (const id of ['knuckles', 'tab']) $(id).addEventListener('change', () => { save(); drawEditor(); scheduleBuild(); });
+$('stops').addEventListener('change', () => { syncPlate(); changed(); });
 for (const r of document.querySelectorAll('input[name=mode]')) r.addEventListener('change', () => { syncPlate(); save(); drawEditor(); scheduleBuild(); });
 
 // ------------------------------------------------------------------ avvio

@@ -18,7 +18,7 @@ export const DEFAULTS = {
   W: 45,            // larghezza (lungo la cerniera)
   T: 4.5,           // spessore di ciascuna piastra
   corner: 4,        // raggio degli angoli sul lato libero
-  margin: 5,        // bordo liscio attorno al disegno
+  margin: 0,        // bordo liscio attorno al disegno (0: si imprime su tutta la piastra)
   mode: 'emboss',   // emboss: la carta esce in rilievo verso l'alto · deboss: incisa
   relief: 0.7,      // altezza dello stampo maschio
   clearance: 0.25,  // gioco laterale per lato tra maschio e cavità (posto per la carta)
@@ -37,6 +37,8 @@ export const DEFAULTS = {
 };
 
 export const RIB = { w: 1.2, h: 1.0, clr: 0.3, min: 2 };
+// distanziali: raggio, distanza dal bordo, anello libero dal disegno attorno a ciascuno
+export const STOP = { r: 1.4, d: 2.5, keep: 0.8 };
 
 const K = {
   sink: 0.3,        // il maschio affonda nella piastra per un'unione pulita
@@ -72,11 +74,9 @@ export function buildFustella(wasm, traced, params) {
   // pixel: u = (x - x0)/sx dal bordo lato cerniera, v = (y - y0)/sy dall'alto; vista dall'alto con
   // la cerniera a sinistra, quindi l'alto dello schermo è +Y
   const { contours, sx, sy, x0, y0 } = traced;
-  const design = contours.length
+  let design = contours.length
     ? new CrossSection(contours.map((c) => c.map(([x, y]) => [start + (x - x0) / sx, W / 2 - (y - y0) / sy])), 'EvenOdd').simplify(0.01)
     : null;
-  const empty = !design || design.isEmpty();
-  if (empty) warnings.push('Il disegno è vuoto: la fustella esce liscia.');
   lap('sezione 2D');
 
   // ---- profondità della cavità
@@ -92,6 +92,14 @@ export function buildFustella(wasm, traced, params) {
     CrossSection.circle(rc, 48).translate([start + L - rc, -W / 2 + rc]),
   ]).hull();
   const plate = () => plateCs.extrude(T);
+  // il disegno può arrivare al bordo: lo taglio sulla sagoma vera della piastra (angoli tondi compresi)
+  if (design && !design.isEmpty()) design = design.intersect(plateCs.offset(-0.2, 'Round', 2, 24));
+  // distanziali: posizioni fisse negli angoli; lì il disegno si ferma, se no lo stampo li urta
+  const stopXY = [];
+  for (const x of [start + STOP.d + 0.5, start + L - STOP.d - 0.5]) for (const y of [-W / 2 + STOP.d, W / 2 - STOP.d]) stopXY.push([x, y]);
+  if (p.stops && design && !design.isEmpty()) design = design.subtract(CrossSection.union(stopXY.map(([x, y]) => CrossSection.circle(STOP.r + STOP.keep, 32).translate([x, y]))));
+  const empty = !design || design.isEmpty();
+  if (empty) warnings.push('Il disegno è vuoto: la fustella esce liscia.');
 
   // ---- stampo maschio e cavità femmina sulla faccia z = T
   const male = (cs) => {
@@ -169,18 +177,14 @@ export function buildFustella(wasm, traced, params) {
     const w = K.minWall / 2;
     const thin = rec.offset(w, 'Round').offset(-w, 'Round').area() - rec.area();
     if (thin > Math.max(3, 0.03 * rec.area())) warnings.push(`Nella piastra con la cavità restano pareti più sottili di ${String(K.minWall).replace('.', ',')} mm tra un incavo e l'altro (${thin.toFixed(0)} mm²): elementi troppo vicini, distanziali un po' o riduci il gioco.`);
-    if (info.coverage > 0.45) warnings.push(`Il disegno copre il ${Math.round(info.coverage * 100)}% dell'area utile: con tanta superficie da imprimere serve molta forza (o una morsa).`);
+    if (info.coverage > 0.45) warnings.push(`Il disegno copre il ${Math.round(info.coverage * 100)}% della piastra: con tanta superficie da imprimere serve molta forza (o una morsa).`);
     lap('controlli');
   }
 
   // distanziali: quattro pastiglie alte G sulla faccia della inferiore, negli angoli del margine
   if (p.stops) {
-    const r = 1.4, d = Math.max(2, Math.min(3, p.margin / 2));
-    if (p.margin < 2 * r + 1.5) warnings.push('Con un margine così stretto i distanziali finiscono vicino al disegno e possono segnare la carta.');
-    const pads = [];
-    for (const x of [start + d + 0.5, start + L - d - 0.5]) for (const y of [-W / 2 + d, W / 2 - d]) {
-      pads.push(Manifold.cylinder(G + 0.02, r, r, 32).translate([x, y, T - 0.02]));
-    }
+    warnings.push('I distanziali stanno negli angoli della piastra: se il foglio li copre, lì resta un segno.');
+    const pads = stopXY.map(([x, y]) => Manifold.cylinder(G + 0.02, STOP.r, STOP.r, 32).translate([x, y, T - 0.02]));
     lower = lower.add(Manifold.union(pads));
   }
 

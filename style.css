@@ -157,4 +157,4 @@ button small { color: var(--muted); font-size: 11px; }
   body { height: auto; }
   .legend { display: none; }
 }
-.editor-wrap { overflow: hidden; }
+.editor-wrap { overflow: hidden; flex-shrink: 0; }

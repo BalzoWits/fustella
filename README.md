@@ -10,13 +10,14 @@ anche in sottrazione). Testi e immagini hanno "Adatta all'area" (misura massima 
 "Mantieni proporzioni" spento le maniglie d'angolo deformano. Sulla piastra: trascina per spostare,
 angoli per ingrandire o cambiare le misure, pallino per ruotare (aggancio ogni 15°, Maiusc forza),
 frecce per spostare di 0,5 mm (Maiusc 2 mm), Canc per eliminare, doppio clic per modificare il testo.
-Guide magnetiche su bordi e centro dell'area utile e sugli altri elementi (Alt le disattiva).
+Guide magnetiche su bordi, centro e linee a 4 mm dal bordo della piastra e sugli altri elementi (Alt le disattiva).
 L'editor mostra di default la resa sulla carta a luce radente (`emboss.js`), poi la vista piatta (con
-in rosso quello che esce dall'area utile e viene tagliato) e il retro del foglio.
+in rosso quello che esce dalla piastra o dal foglio e viene tagliato) e il retro del foglio.
 
 Le misure della piastra (scheda Disegno) si cambiano anche trascinando le maniglie gialle sul bordo libero,
-sul lato in basso e sull'angolo; con "Scala anche il disegno" il disegno segue l'area utile, se no resta
-della sua misura e centrato. Il margine può scendere a 0 (si imprime su tutta la superficie).
+sul lato in basso e sull'angolo; con "Scala anche il disegno" il disegno segue la piastra, se no resta
+della sua misura e centrato. Si imprime su tutta la superficie della piastra, fino al bordo (gli angoli
+tondi tagliano il disegno). Con i distanziali attivi resta un anello libero attorno a ciascuno.
 
 Allineatori del foglio (opzionali): battuta di fondo (lato cerniera) e/o laterale (in alto o in basso).
 Sono nervature 1,2 × 1 mm sulla metà di sotto con la sede nella metà di sopra; la linea blu nell'editor

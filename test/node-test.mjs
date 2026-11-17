@@ -19,7 +19,12 @@ const alpha = new Uint8Array(Wpx * Hpx);
 const paint = (fn) => {
   for (let j = 0; j < Hpx; j++) for (let i = 0; i < Wpx; i++) {
     const u = (i + 0.5) / PX, v = (j + 0.5) / PX;
-    if (u < M || u > L - M || v < M || v > W - M) continue; // area utile
+    // come nella pagina: niente disegno dove il foglio non arriva (0,8 mm di distacco dalle nervature)
+    const g = 0.8, top = params.alignSide === 'top', bot = params.alignSide === 'bottom';
+    if (u < M || u > L - M || v < M || v > W - M) continue;
+    if (params.alignBack && u < params.alignBackPos + g) continue;
+    if (top && v < params.alignSidePos + g) continue;
+    if (bot && v > W - params.alignSidePos - g) continue;
     const a = fn(u, v);
     if (a > 0) alpha[j * Wpx + i] = Math.max(alpha[j * Wpx + i], Math.round(255 * Math.min(1, a)));
   }

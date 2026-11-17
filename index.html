@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fustella a Libro</title>
+<meta name="description" content="Disegna una fustella da goffratura per carta con cerniera stampata già montata e scaricala pronta da stampare in 3D.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='4' width='6' height='9' rx='1.5' fill='%23e8c27a'/%3E%3Crect x='9' y='4' width='6' height='9' rx='1.5' fill='none' stroke='%23e8c27a' stroke-width='1.4'/%3E%3Ccircle cx='8' cy='8.5' r='1.3' fill='%23e8c27a'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">▮▯</span> Fustella a Libro <small>goffratura per carta, cerniera stampata già montata</small></div>
+  <div class="top-right">
+    <div id="status" class="status">Caricamento…</div>
+    <button id="dl3mfTop" type="button" class="primary" disabled>Scarica la fustella (.3mf)</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="design" aria-selected="true">Disegno</button>
+      <button type="button" role="tab" data-tab="print" aria-selected="false">Fustella e stampa</button>
+    </div>
+    <div data-panel="design">
+    <section>
+      <h2>Piastra</h2>
+      <div class="row3">
+        <label>Lunghezza <span class="unit">mm</span>
+          <input id="L" type="number" min="35" max="120" step="1" value="60">
+        </label>
+        <label>Larghezza <span class="unit">mm</span>
+          <input id="W" type="number" min="25" max="100" step="1" value="45">
+        </label>
+        <label>Margine <span class="unit">mm</span>
+          <input id="margin" type="number" min="0" max="15" step="0.5" value="5">
+        </label>
+      </div>
+      <label class="chk opt"><input id="scaleDesign" type="checkbox" checked> Scala anche il disegno quando cambio la piastra</label>
+      <p class="hint">Puoi anche trascinare le maniglie sul bordo della piastra nell'editor. Con margine 0 si imprime su tutta la superficie.</p>
+    </section>
+    <section>
+      <div class="add">
+        <button type="button" data-add="text">+ Testo</button>
+        <button type="button" data-add="pattern">+ Motivo</button>
+        <button type="button" data-add="image">+ Immagine</button>
+        <button type="button" data-add="frame">+ Cornice</button>
+      </div>
+      <ul id="layers" class="layers" aria-label="Elementi del disegno"></ul>
+      <div id="props" class="props"></div>
+      <p class="hint">Più in alto nella lista = sta sopra. "Sottrai" buca gli elementi sotto (es. un nome scavato in un motivo). Quello che esce dall'area utile viene tagliato.</p>
+      <input id="imageFile" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+      <input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2" hidden>
+    </section>
+    <section>
+      <h2>Allineatori del foglio</h2>
+      <label class="chk opt"><input id="alignBack" type="checkbox"> Battuta di fondo (lato cerniera)</label>
+      <div class="row">
+        <label>Battuta laterale
+          <select id="alignSide"><option value="none">Nessuna</option><option value="top">In alto</option><option value="bottom">In basso</option></select>
+        </label>
+        <label></label>
+      </div>
+      <div class="row">
+        <label id="alignBackPosWrap">Fondo dal bordo <span class="unit">mm</span>
+          <input id="alignBackPos" type="number" min="2" max="60" step="0.5" value="3">
+        </label>
+        <label id="alignSidePosWrap">Lato dal bordo <span class="unit">mm</span>
+          <input id="alignSidePos" type="number" min="2" max="60" step="0.5" value="3">
+        </label>
+      </div>
+      <p class="hint">Una nervatura sulla metà di sotto, con la sua sede nella metà di sopra: appoggi il bordo del foglio e il disegno cade sempre nello stesso punto. Con tutte e due fai battere l'angolo del foglio. La linea blu nell'editor è il bordo del foglio: si trascina.</p>
+    </section>
+    </div>
+
+    <div data-panel="print" hidden>
+    <section>
+      <h2>Piastre</h2>
+      <div class="row">
+        <label>Spessore <span class="unit">mm</span>
+          <input id="T" type="number" min="3.5" max="8" step="0.5" value="4.5">
+        </label>
+        <label>Raggio angoli <span class="unit">mm</span>
+          <input id="corner" type="number" min="0.5" max="15" step="0.5" value="4">
+        </label>
+      </div>
+      <p class="hint">Lunghezza, larghezza e margine sono nella scheda Disegno. Il raggio vale per gli angoli del lato libero.</p>
+    </section>
+
+    <section>
+      <h2>Impressione</h2>
+      <div class="seg" role="radiogroup" aria-label="Verso dell'impressione">
+        <label><input type="radio" name="mode" value="emboss" checked> In rilievo</label>
+        <label><input type="radio" name="mode" value="deboss"> Inciso</label>
+      </div>
+      <p class="hint" id="modeHint"></p>
+      <div class="row">
+        <label>Rilievo <span class="unit">mm</span>
+          <input id="relief" type="number" min="0.3" max="1.5" step="0.05" value="0.7">
+        </label>
+        <label>Gioco per lato <span class="unit">mm</span>
+          <input id="clearance" type="number" min="0.1" max="0.6" step="0.05" value="0.25">
+        </label>
+      </div>
+      <details>
+        <summary>Regolazioni fini</summary>
+        <div class="row">
+          <label>Luce tra le facce <span class="unit">mm</span>
+            <input id="gap" type="number" min="0.05" max="0.5" step="0.05" value="0.15">
+          </label>
+          <label>Spazio in punta <span class="unit">mm</span>
+            <input id="tip" type="number" min="0.05" max="0.6" step="0.05" value="0.2">
+          </label>
+        </div>
+        <label>Smusso degli spigoli <span class="unit">mm</span>
+          <input id="soften" type="number" min="0" max="0.25" step="0.02" value="0.12">
+        </label>
+        <p class="hint">Luce: distanza tra le facce a fustella chiusa. Spazio in punta: aria tra la punta dello stampo e il fondo della cavità. Lo smusso evita che gli spigoli taglino la carta.</p>
+      </details>
+      <p class="hint">Carta normale (80–120 g): valori di partenza. Cartoncino (200–300 g): gioco 0,3–0,35 e rilievo 0,8–1.</p>
+    </section>
+
+    <section>
+      <h2>Cerniera e accessori</h2>
+      <div class="row">
+        <label>Gioco del perno <span class="unit">mm</span>
+          <input id="hingeClr" type="number" min="0.2" max="0.5" step="0.05" value="0.3">
+        </label>
+        <label>Spazio tra le nocche <span class="unit">mm</span>
+          <input id="axialGap" type="number" min="0.25" max="0.8" step="0.05" value="0.4">
+        </label>
+      </div>
+      <label>Nocche
+        <select id="knuckles"><option value="5">5</option><option value="7" selected>7</option><option value="9">9</option></select>
+      </label>
+      <label class="chk opt"><input id="tab" type="checkbox" checked> Linguetta per aprire sul bordo libero</label>
+      <label class="chk opt"><input id="stops" type="checkbox"> Distanziali negli angoli (fermano la chiusura alla luce)</label>
+      <p class="hint">Se la cerniera esce incollata, alza il gioco del perno a 0,35–0,4. Prima di stampare tutto puoi provare solo la cerniera (sotto).</p>
+    </section>
+
+    <section>
+      <h2>Scarica</h2>
+      <div class="dl">
+        <button id="dl3mf" type="button" class="primary" disabled>Fustella (.3mf)</button>
+        <button id="dlStl" type="button" disabled>Fustella <small>STL</small></button>
+        <button id="dlTest" type="button" disabled>Prova cerniera <small>3MF</small></button>
+        <button id="dlJson" type="button" class="ghost">Salva disegno</button>
+      </div>
+      <label class="file">Apri un disegno salvato (.json)
+        <input id="openJson" type="file" accept=".json,application/json">
+      </label>
+      <dl id="info" class="info"></dl>
+    </section>
+
+    <section>
+      <h2>Stampa e uso</h2>
+      <table id="settings" class="settings"></table>
+      <ol class="howto">
+        <li>Stampa la fustella <b>aperta, come esce dal file</b>: le due metà sono già montate sulla cerniera. Non separarle e non ruotarle sul piatto.</li>
+        <li>Niente supporti. Il .3mf imposta layer 0,12, 3 pareti e riempimento 25%; il resto resta quello del profilo della tua stampante.</li>
+        <li>Appena staccata dal piatto, piega la cerniera avanti e indietro un paio di volte per sbloccarla.</li>
+        <li>Infila il foglio fino in fondo (verso la cerniera), chiudi e <b>stringi forte</b> con le dita, o meglio in una morsa o sotto una pressa. Il lato che guardi dall'alto è quello disegnato qui.</li>
+        <li>Se il segno è debole: rilievo un po' più alto o carta più sottile. Se la carta si taglia: gioco più largo o smusso maggiore.</li>
+      </ol>
+    </section>
+
+    <section class="credits">
+      <p>Progetto originale. Font: SIL Open Font License (cartella <code>fonts/licenses</code>). Librerie: manifold-3d, three.js.</p>
+    </section>
+    </div>
+  </aside>
+
+  <section class="stage">
+    <div class="editor-head">
+      <h3>Piastra vista dall'alto <span class="muted" id="plateSize">60 × 45 mm · clic per selezionare, trascina per spostare</span></h3>
+      <div class="seg small" role="radiogroup" aria-label="Vista dell'editor">
+        <label><input type="radio" name="look" value="relief" checked> Rilievo</label>
+        <label><input type="radio" name="look" value="flat"> Disegno</label>
+        <label><input type="radio" name="look" value="back"> Retro del foglio</label>
+      </div>
+    </div>
+    <div class="legend"><span class="sw sw-card"></span> area utile <span class="sw sw-seam"></span> cerniera <span id="lookHint"></span></div>
+    <div class="editor-wrap"><canvas id="editor" tabindex="0" aria-label="Editor della piastra"></canvas></div>
+
+    <ul id="warnings" class="warnings"></ul>
+
+    <div class="previews">
+      <div class="pane">
+        <div class="pane-head">
+          <h3>Fustella 3D</h3>
+          <label class="range-inline">Aperta <input id="fold" type="range" min="0" max="180" step="1" value="0" aria-label="Chiusura della fustella"> Chiusa</label>
+          <label class="chk"><input id="anim" type="checkbox"> Apri e chiudi</label>
+        </div>
+        <div id="viewer" class="viewer"><div id="busy" class="busy">Genero la fustella…</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

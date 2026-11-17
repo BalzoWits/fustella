@@ -1,0 +1,8 @@
+{
+  "name": "fustella-a-libro",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Configuratore di fustelle da goffratura per carta con cerniera stampata già montata",
+  "scripts": { "test": "node test/node-test.mjs && node test/node-test.mjs deboss" }
+}

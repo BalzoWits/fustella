@@ -42,7 +42,7 @@ export const STOP = { r: 1.4, d: 2.5, keep: 0.8 };
 
 const K = {
   sink: 0.3,        // il maschio affonda nella piastra per un'unione pulita
-  steps: 3,         // gradini dello smusso
+  steps: 1,         // gradini dello smusso: uno basta, più sottili di un layer (0,12) in stampa non esistono
   minStroke: 0.6,   // tratto minimo che si imprime bene sulla carta
   minWall: 0.6,     // parete minima tra due cavità della femmina
   minBack: 1.2,     // materiale minimo sotto la cavità

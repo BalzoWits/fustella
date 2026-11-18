@@ -9,9 +9,14 @@ import { DEFAULTS, hingeDims, STOP } from './fustella.js';
 import { toSTL, to3MF } from './export.js';
 import { PRINT, bambuObjectSettings } from './print-settings.js';
 import { embossImage } from './emboss.js';
+import { initI18n, t, isEn } from './i18n.js';
+import * as EN from './i18n-en.js';
+
+// lingua: prima di qualunque testo generato (italiano di base, inglese tradotto al volo)
+initI18n(EN);
 
 const $ = (id) => document.getElementById(id);
-const fmt = (n, d = 1) => n.toFixed(d).replace('.', ',');
+const fmt = (n, d = 1) => (isEn ? n.toFixed(d) : n.toFixed(d).replace('.', ','));
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -168,7 +173,7 @@ function fieldHtml(f, el) {
     case 'center': return '<div class="row"><button type="button" data-center="h">Centra in orizzontale</button><button type="button" data-center="v">Centra in verticale</button></div>';
     case 'checkbox': return `<label class="chk opt"><input id="${id}" data-key="${f.key}" type="checkbox"${v ? ' checked' : ''}> ${f.label}</label>`;
     case 'seg': return `<div class="seg" data-wrap="${f.key}">${f.options.map(([k, t]) => `<label><input type="radio" name="${id}" data-key="${f.key}" value="${k}"${k === v ? ' checked' : ''}> ${t}</label>`).join('')}</div>`;
-    case 'image': return `<div class="row"><button type="button" id="pickImage">${el.src ? 'Cambia immagine…' : 'Scegli immagine…'}</button><span class="hint" style="align-self:center">${escapeHtml(el.name || 'nessun file')}</span></div><p class="hint">PNG, JPG o SVG. Va bene un logo nero su bianco: si può anche trascinare il file sulla piastra.</p>`;
+    case 'image': return `<div class="row"><button type="button" id="pickImage">${el.src ? 'Cambia immagine…' : 'Scegli immagine…'}</button><span class="hint" style="align-self:center"${el.name ? ' translate="no"' : ''}>${escapeHtml(el.name || 'nessun file')}</span></div><p class="hint">PNG, JPG o SVG. Va bene un logo nero su bianco: si può anche trascinare il file sulla piastra.</p>`;
   }
   return '';
 }
@@ -273,7 +278,7 @@ function renderLayers() {
   ul.innerHTML = [...els].reverse().map((e) => `
     <li data-id="${e.id}" class="${e.id === selId ? 'sel' : ''} ${e.visible ? '' : 'off'}">
       <span class="ty">${TYPE_NAME[e.type]}</span>
-      <span class="nm">${escapeHtml(label(e))}</span>
+      <span class="nm" translate="no">${escapeHtml(label(e))}</span>
       ${e.op === 'cut' ? '<span class="cut">sottrai</span>' : ''}
       <button type="button" data-act="vis" title="${e.visible ? 'Nascondi' : 'Mostra'}">${e.visible ? '◉' : '○'}</button>
       <button type="button" data-act="up" title="Porta sopra">↑</button>
@@ -635,6 +640,7 @@ function drawEditor() {
 
 // etichetta scura con testo chiaro (gradi, misure), tenuta dentro l'editor
 function badge(ctx, text, x, y, big = false) {
+  text = t(text); // disegnato su canvas: il traduttore della pagina non lo vede
   ctx.save();
   ctx.font = `${big ? 600 : 500} ${big ? 14 : 12}px system-ui, sans-serif`;
   const w = ctx.measureText(text).width + 12, h = big ? 22 : 19;

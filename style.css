@@ -158,3 +158,4 @@ button small { color: var(--muted); font-size: 11px; }
   .legend { display: none; }
 }
 .editor-wrap { overflow: hidden; flex-shrink: 0; }
+.lang { padding: 5px 9px; font-size: 12px; font-weight: 600; letter-spacing: .04em; min-width: 0; }

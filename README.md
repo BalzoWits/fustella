@@ -28,6 +28,13 @@ Il .3mf scaricato contiene un solo oggetto (le due metà sono incastrate) con la
 riempimento 25% e supporti spenti, letti da Bambu Studio e OrcaSlicer. C'è anche un pezzo di prova
 con la sola cerniera.
 
+## Lingua
+
+La pagina è scritta in italiano; il bottone IT/EN in alto passa all'inglese (scelta salvata nel browser,
+di default la lingua del browser). `i18n.js` traduce i testi della pagina al volo, anche quelli scritti
+dopo dal programma, con i dizionari di `i18n-en.js` (testi, blocchi con markup, frasi con numeri).
+Per un testo nuovo basta aggiungere la voce in `i18n-en.js`; i testi disegnati sul canvas passano da `t()`.
+
 ## Geometria (`fustella.js`)
 
 - Riferimento di stampa: tutte e due le piastre con il dorso sul piatto. Asse della cerniera lungo Y a

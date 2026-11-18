@@ -19,6 +19,18 @@ function pack(m, transfer) {
   return { vertProperties: vert, triVerts: tri, numProp: 3 };
 }
 
+// le due metà sono separate (si toccano solo a fustella chiusa): per l'export basta accodarle,
+// senza un'unione booleana
+function concat(a, b) {
+  const nv = a.vertProperties.length / 3;
+  const vert = new Float32Array(a.vertProperties.length + b.vertProperties.length);
+  vert.set(a.vertProperties); vert.set(b.vertProperties, a.vertProperties.length);
+  const tri = new Uint32Array(a.triVerts.length + b.triVerts.length);
+  tri.set(a.triVerts);
+  for (let i = 0; i < b.triVerts.length; i++) tri[a.triVerts.length + i] = b.triVerts[i] + nv;
+  return { vertProperties: vert, triVerts: tri, numProp: 3 };
+}
+
 self.onmessage = async ({ data }) => {
   const { id } = data;
   try {
@@ -31,7 +43,8 @@ self.onmessage = async ({ data }) => {
     const transfer = [];
     const lower = pack(r.lower, transfer), upper = pack(r.upper, transfer), coupon = pack(r.coupon, transfer);
     // un pezzo solo per l'export: le due metà sono incastrate e non vanno spostate una dall'altra
-    const whole = pack(wasm.Manifold.union([r.lower, r.upper]), transfer);
+    const whole = concat(lower, upper);
+    transfer.push(whole.vertProperties.buffer, whole.triVerts.buffer);
     const ms = Math.round(performance.now() - t0);
     self.postMessage({ id, ok: true, lower, upper, coupon, whole, info: r.info, warnings: r.warnings, ms }, transfer);
   } catch (e) {

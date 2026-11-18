@@ -4,6 +4,7 @@
 // u verso destra (0 = bordo lato cerniera … L = bordo libero), v verso il basso (0 … W).
 // Il disegno resta sulla piastra (e sulla parte coperta dal foglio, se ci sono allineatori): fuori viene tagliato.
 import { STOP } from './fustella.js';
+import { t } from './i18n.js';
 export const PXMM = 10; // risoluzione della maschera
 
 // misure correnti della piastra (le cambia la pagina con setPlate)
@@ -132,7 +133,7 @@ export function newElement(type) {
   const base = { id: newId(), type, op: 'add', visible: true };
   switch (type) {
     // keep = proporzioni bloccate; sx = allargamento orizzontale del testo (solo con keep spento)
-    case 'text': return { ...base, text: 'Il tuo nome', font: 'playfair', size: 4.5, spacing: 0.3, lineH: 1.5, align: 'center', style: 'fill', stroke: 0.8, x: cx, y: cy, rot: 0, keep: true, sx: 1 };
+    case 'text': return { ...base, text: t('Il tuo nome'), font: 'playfair', size: 4.5, spacing: 0.3, lineH: 1.5, align: 'center', style: 'fill', stroke: 0.8, x: cx, y: cy, rot: 0, keep: true, sx: 1 };
     case 'pattern': return { ...base, kind: 'pois', period: 4, thick: 1.4, angle: 45, area: 'all', x: r2(A.x + 4), y: r2(A.y + 4), w: 20, h: 14, seed: 1 };
     // h vale solo con keep spento; con keep acceso l'altezza viene dalle proporzioni del file
     case 'image': return { ...base, src: null, name: '', threshold: 128, invert: false, w: Math.min(20, A.w - 4), h: 0, x: cx, y: cy, rot: 0, keep: true };
@@ -524,12 +525,16 @@ export function renderDesign(ctx, els, clip = true) {
   ctx.save();
   if (clip) {
     const A = printRegion();
-    ctx.beginPath(); ctx.rect(A.x, A.y, A.w, A.h);
-    // distanziali: un buco nella zona stampabile attorno a ciascuno (come nella geometria)
-    if (PLATE.stops) for (const u of [STOP.d + 0.5, PLATE.L - STOP.d - 0.5]) for (const v of [STOP.d, PLATE.W - STOP.d]) {
-      ctx.moveTo(u + STOP.r + STOP.keep, v); ctx.arc(u, v, STOP.r + STOP.keep, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.rect(A.x, A.y, A.w, A.h); ctx.clip();
+    // distanziali: un buco attorno a ciascuno (come nella geometria). Secondo ritaglio a parte:
+    // con rettangolo e cerchi nello stesso percorso le parti dei cerchi fuori dal rettangolo entrerebbero
+    if (PLATE.stops) {
+      ctx.beginPath(); ctx.rect(-10, -10, PLATE.L + 20, PLATE.W + 20);
+      for (const u of [STOP.d + 0.5, PLATE.L - STOP.d - 0.5]) for (const v of [STOP.d, PLATE.W - STOP.d]) {
+        ctx.moveTo(u + STOP.r + STOP.keep, v); ctx.arc(u, v, STOP.r + STOP.keep, 0, Math.PI * 2);
+      }
+      ctx.clip('evenodd');
     }
-    ctx.clip('evenodd');
   }
   for (const el of els) {
     if (!el.visible) continue;
